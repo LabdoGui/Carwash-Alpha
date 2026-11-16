@@ -47,7 +47,14 @@ js/                   programação, um arquivo por assunto
 img/ icons/ logo/     logotipo e ícones
 docs/                 apresentação em PDF
 LEIA-ME.txt           explicação completa da estrutura
+prototipo/            outra versão do app (garagem + cartão), separada em pastas
 ```
+
+## Protótipo (garagem e cartão)
+
+A pasta [`prototipo/`](prototipo/) tem outra versão do Carwash, com garagem de veículos e pagamento por cartão, Pix ou no local.
+Ela nasceu como um único arquivo HTML e foi separada em `index.html`, `css/` e `js/` (um arquivo por assunto).
+Veja o [README do protótipo](prototipo/README.md) para a estrutura completa.
 
 ## Observações
 
