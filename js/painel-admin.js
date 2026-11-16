@@ -1,52 +1,270 @@
-/* Carwash (protótipo) — painel administrativo: indicadores, pátio, clientes, cartões, veículos e lucros. */
+/* Carwash — js/painel-admin.js
+   Painel do administrador: indicadores, pátio, agendamentos, clientes, colaboradores, unidades, problemas e pagamentos. */
 'use strict';
 /* ============ ADMIN ============ */
-const stCls=s=>s==='Concluído'?'ok':s==='Em Lavagem'?'info':'warn';
-function table(heads,rows,empty,cols){
-  return '<div class="scroll"><table class="dt"><thead><tr>'+heads.map((h,i)=>'<th scope="col"'+(h[1]?' class="n"':'')+'>'+h[0]+'</th>').join('')+'</tr></thead><tbody>'+(rows.length?rows.join(''):'<tr><td class="empty" colspan="'+heads.length+'">'+empty+'</td></tr>')+'</tbody></table></div>';
+function table(heads, rows, empty, cols) {
+  return (
+    '<div class="scroll"><table class="dt"><thead><tr>' +
+    heads.map((h, i) => '<th scope="col"' + (h[1] ? ' class="n"' : '') + '>' + h[0] + '</th>').join('') +
+    '</tr></thead><tbody>' +
+    (rows.length
+      ? rows.join('')
+      : '<tr><td class="empty" colspan="' + heads.length + '">' + empty + '</td></tr>') +
+    '</tbody></table></div>'
+  );
 }
-function weekStart(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
-function adminStats(){
-  const t=todayKey(),live=D.bookings.filter(b=>b.status!=='Cancelado'),today=live.filter(b=>b.date===t);
-  const done=today.filter(b=>b.status==='Concluído');
-  const kpi={rev:done.reduce((a,b)=>a+b.price,0),served:today.filter(b=>b.status!=='Aguardando').length,done:done.length,eff:today.length?Math.round(done.length/today.length*100):0};
-  const cl={};live.forEach(b=>{const c=cl[b.userId]||(cl[b.userId]={n:0,total:0,last:''});c.n++;c.total+=b.price;if(b.date>c.last&&b.date<=t)c.last=b.date});
-  const clients=Object.keys(cl).map(id=>({u:userById(id),...cl[id]})).filter(x=>x.u).sort((a,b)=>b.total-a.total||b.n-a.n).slice(0,5);
-  const weeks=[];const w0=weekStart(new Date());
-  for(let i=5;i>=0;i--){const s=new Date(w0);s.setDate(s.getDate()-7*i);const e=new Date(s);e.setDate(e.getDate()+6);const a=dkey(s),z=dkey(e);const bs=D.bookings.filter(b=>b.status==='Concluído'&&b.date>=a&&b.date<=z);weeks.push({a,z,n:bs.length,rev:bs.reduce((x,b)=>x+b.price,0)})}
-  const types=SERVICES.map(s=>({s,n:live.filter(b=>b.serviceId===s.id).length})).sort((a,b)=>b.n-a.n);
-  return {kpi,clients,weeks,types,today,total:live.length};
+function weekStart(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
 }
-function adminHtml(){
-  const A=adminStats(),now=new Date();
-  const dm=D.users.some(u=>u.demo)||D.bookings.some(b=>b.demo);
-  const maxRev=Math.max(1,...A.weeks.map(w=>w.rev)),maxT=Math.max(1,...A.types.map(t=>t.n));
-  const yard=A.today.slice().sort((a,b)=>a.time.localeCompare(b.time)).map(b=>{const v=vehById(b.vehicleId),u=userById(b.userId),s=svcById(b.serviceId);
-    return '<tr><td><b>'+b.time+'</b></td><td>'+esc(u?u.name:'—')+'</td><td>'+esc(v?v.model:'—')+' <span class="plate">'+esc(v?v.plate:'')+'</span></td><td>'+s.name+'</td><td>'+esc(b.unit)+'</td><td>'+payLabel(b)+' <span class="muted">· '+payState(b)+'</span></td><td><select class="stsel s-'+stCls(b.status)+'" id="st-'+b.id+'" data-status="'+b.id+'" aria-label="Status de '+esc(v?v.plate:'')+'">'+STATUSES.map(o=>'<option'+(o===b.status?' selected':'')+'>'+o+'</option>').join('')+'</select></td></tr>'}).join('');
-  const clients=A.clients.map((c,i)=>'<tr><td>'+(i+1)+'</td><td><b>'+esc(c.u.name)+'</b><br><span class="muted small">'+esc(c.u.email)+'</span></td><td class="n">'+c.n+'</td><td class="n"><b>'+money(c.total)+'</b></td><td>'+(c.last?brDate(c.last):'—')+'</td></tr>');
-  const cards=D.cards.map(c=>{const u=userById(c.userId);return '<tr><td>'+esc(u?u.name:'—')+'</td><td>'+esc(c.brand)+'</td><td>•••• '+esc(c.last4)+'</td><td>'+esc(c.holder)+'</td><td>'+esc(c.exp)+'</td></tr>'});
-  const vrows=cat=>D.vehicles.filter(v=>v.cat===cat).map(v=>{const u=userById(v.userId);return '<tr><td><span class="plate">'+esc(v.plate)+'</span></td><td>'+esc(v.model)+'</td><td><span class="tag">'+esc(v.sub)+'</span></td><td>'+esc(v.color)+'</td><td>'+esc(u?u.name:'—')+'</td></tr>'});
-  const cars=vrows('Carro'),motos=vrows('Moto');
-  const weeks=A.weeks.map((w,i)=>{const prev=A.weeks[i-1];let v='—';if(prev&&prev.rev>0){const p=Math.round((w.rev-prev.rev)/prev.rev*100);v='<span class="'+(p>=0?'pos':'neg')+'">'+(p>=0?'▲ +':'▼ ')+p+'%</span>'}
-    return '<tr><td>'+brDate(w.a).slice(0,5)+' – '+brDate(w.z).slice(0,5)+(i===5?' <span class="tag">atual</span>':'')+'</td><td class="n">'+w.n+'</td><td class="n"><b>'+money(w.rev)+'</b></td><td class="n">'+(w.n?money(w.rev/w.n):'—')+'</td><td class="n">'+v+'</td></tr>'});
-  const types=A.types.map((t,i)=>'<tr><td>'+(i+1)+'</td><td><b>'+t.s.name+'</b></td><td class="n">'+t.n+'</td><td class="n">'+(A.total?Math.round(t.n/A.total*100):0)+'%</td><td><div class="mini"><div class="bar"><span style="width:'+Math.round(t.n/maxT*100)+'%"></span></div></div></td></tr>');
-  const K=A.kpi;
-  return '<div class="adm-head"><div><div class="eyebrow">Painel administrativo</div><h1 style="margin:0">Pátio de hoje · '+brDate(todayKey())+'</h1><span class="live" style="margin-top:6px"><i></i>Tempo real · atualizado às <span id="upd">'+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds())+'</span></span></div>'+
-   '<div class="tools"><button class="btn ghost sm" data-act="'+(dm?'clearDemo':'seedDemo')+'">'+(dm?'Remover dados de demonstração':'Carregar dados de demonstração')+'</button><button class="btn ghost sm" data-act="exitAdmin">'+ic('out')+'Sair do painel</button></div></div>'+
-  '<section class="kpis" aria-label="Indicadores de hoje">'+
-   '<div class="kpi"><span>Faturamento Hoje</span><b>'+money(K.rev)+'</b><small>serviços concluídos hoje</small></div>'+
-   '<div class="kpi"><span>Veículos Atendidos</span><b>'+K.served+'</b><small>em lavagem ou concluídos</small></div>'+
-   '<div class="kpi"><span>Concluídos</span><b>'+K.done+'</b><small>de '+A.today.length+' agendados hoje</small></div>'+
-   '<div class="kpi"><span>Eficiência</span><b>'+K.eff+'%</b><small>concluídos ÷ agendados</small></div></section>'+
-  '<section class="panel" aria-labelledby="h-yard"><header><h2 id="h-yard">Pátio em tempo real</h2><span class="muted small">Altere o status operacional de cada veículo</span></header>'+
-   table([['Horário'],['Cliente'],['Veículo'],['Serviço'],['Unidade'],['Pagamento'],['Status']],yard?[yard]:[],'Nenhum veículo agendado para hoje.')+'</section>'+
-  '<div class="grid2">'+
-   '<section class="panel"><header><h2>Maiores clientes</h2><span class="muted small">por valor em serviços</span></header>'+table([['#'],['Cliente'],['Lavagens',1],['Total',1],['Última visita']],clients,'Sem clientes com agendamentos ainda.')+'</section>'+
-   '<section class="panel"><header><h2>Cartões cadastrados</h2><span class="tag">'+D.cards.length+'</span></header>'+table([['Cliente'],['Bandeira'],['Final'],['Titular'],['Validade']],cards,'Nenhum cartão cadastrado.')+'<div class="note">Apenas bandeira, final, titular e validade são guardados.</div></section>'+
-   '<section class="panel"><header><h2>Veículos cadastrados · Carros</h2><span class="tag">'+cars.length+'</span></header>'+table([['Placa'],['Modelo'],['Tipo'],['Cor'],['Proprietário']],cars,'Nenhum carro cadastrado.')+'</section>'+
-   '<section class="panel"><header><h2>Veículos cadastrados · Motos</h2><span class="tag">'+motos.length+'</span></header>'+table([['Placa'],['Modelo'],['Tipo'],['Cor'],['Proprietário']],motos,'Nenhuma moto cadastrada.')+'</section>'+
-   '<section class="panel"><header><h2>Lucros semanais</h2><span class="muted small">últimas 6 semanas</span></header>'+table([['Semana'],['Lavagens',1],['Receita',1],['Ticket médio',1],['vs. anterior',1]],weeks,'')+'<div class="note">Receita bruta de serviços concluídos (sem custos operacionais).</div></section>'+
-   '<section class="panel"><header><h2>Lavagens mais solicitadas</h2><span class="muted small">todos os agendamentos</span></header>'+table([['#'],['Tipo de lavagem'],['Pedidos',1],['Part.',1],['']],types,'')+'</section>'+
-  '</div>';
+function adminStats() {
+  const t = todayKey(),
+    n0 = new Date(),
+    tm = dkey(new Date(n0.getFullYear(), n0.getMonth(), n0.getDate() + 1));
+  const live = D.bookings.filter(b => b.status !== 'Cancelado'),
+    today = live.filter(b => b.date === t);
+  const done = today.filter(b => b.status === 'Concluído');
+  const sum = a => a.reduce((x, b) => x + b.price, 0);
+  const kpi = {
+    rev: sum(done),
+    served: today.filter(b => b.status !== 'Aguardando').length,
+    done: done.length,
+    eff: today.length ? Math.round((done.length / today.length) * 100) : 0
+  };
+  const extra = {
+    n: today.length,
+    recv: sum(today.filter(b => !b.paid)),
+    avg: today.length ? sum(today) / today.length : 0,
+    tom: live.filter(b => b.date === tm).length
+  };
+  const cl = {};
+  live.forEach(b => {
+    const c = cl[b.userId] || (cl[b.userId] = { n: 0, total: 0, last: '' });
+    c.n++;
+    c.total += b.price;
+    if (b.date > c.last && b.date <= t) c.last = b.date;
+  });
+  const clients = Object.keys(cl)
+    .map(id => ({ u: userById(id), ...cl[id] }))
+    .filter(x => x.u)
+    .sort((a, b) => b.total - a.total || b.n - a.n)
+    .slice(0, 5);
+  const weeks = [];
+  const w0 = weekStart(new Date());
+  for (let i = 5; i >= 0; i--) {
+    const s = new Date(w0);
+    s.setDate(s.getDate() - 7 * i);
+    const e = new Date(s);
+    e.setDate(e.getDate() + 6);
+    const a = dkey(s),
+      z = dkey(e);
+    const bs = D.bookings.filter(b => b.status === 'Concluído' && b.date >= a && b.date <= z);
+    weeks.push({ a, z, n: bs.length, rev: sum(bs) });
+  }
+  const types = SERVICES.map(s => ({ s, n: live.filter(b => b.serviceId === s.id).length })).sort(
+    (a, b) => b.n - a.n
+  );
+  const units = UNITS.map(u => {
+    const n = today.filter(b => b.unit === u.id).length;
+    return { id: u.id, n, free: SLOTS.length - n };
+  });
+  const pays = [
+    ['Pix · confirmado', b => b.pay === 'pix' && b.paid],
+    ['Pix · a confirmar', b => b.pay === 'pix' && !b.paid],
+    ['Pagar no local · recebido', b => b.pay === 'local' && b.paid],
+    ['Pagar no local · a receber', b => b.pay === 'local' && !b.paid]
+  ].map(p => {
+    const bs = live.filter(p[1]);
+    return { name: p[0], n: bs.length, rev: sum(bs) };
+  });
+  return { kpi, extra, clients, weeks, types, units, pays, today, total: live.length };
 }
-screens.admin=()=>adminHtml();
+const stCls = s =>
+  s === 'Concluído'
+    ? 'ok'
+    : s === 'Em Lavagem' || s === 'Iniciando'
+      ? 'info'
+      : s === 'Cancelado' || s === 'Com Problema'
+        ? 'bad'
+        : 'warn';
+const obsLine = b => (b.obs ? '<div class="oline">Obs.: ' + esc(b.obs) + '</div>' : '');
+function statusSelect(b, prefix, opts) {
+  const v = vehById(b.vehicleId);
+  return (
+    '<select class="stsel s-' +
+    stCls(b.status) +
+    '" id="' +
+    prefix +
+    b.id +
+    '" data-status="' +
+    b.id +
+    '" aria-label="Status de ' +
+    esc(b.code) +
+    (v ? ' (' + esc(v.plate) + ')' : '') +
+    '">' +
+    opts.map(o => '<option' + (o === b.status ? ' selected' : '') + '>' + o + '</option>').join('') +
+    '</select>' +
+    (b.status === 'Com Problema' && b.problem ? '<div class="prob small">⚠ ' + esc(b.problem) + '</div>' : '')
+  );
+}
+function allList() {
+  const f = S.adm,
+    q = f.q.trim().toLowerCase();
+  return D.bookings
+    .slice()
+    .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
+    .filter(b => {
+      if (f.unit && b.unit !== f.unit) return false;
+      if (f.status && b.status !== f.status) return false;
+      if (!q) return true;
+      const v = vehById(b.vehicleId),
+        u = userById(b.userId);
+      return [b.code, u && u.name, u && u.socialName, v && v.plate, v && v.model]
+        .join(' ')
+        .toLowerCase()
+        .includes(q);
+    });
+}
+function allRowsHtml(list) {
+  if (!list.length) return '<tr><td class="empty" colspan="9">Nenhum agendamento encontrado.</td></tr>';
+  return list
+    .slice(0, S.adm.limit)
+    .map(b => {
+      const v = vehById(b.vehicleId),
+        u = userById(b.userId),
+        sv = svcById(b.serviceId);
+      return (
+        '<tr><td><span class="cw">' +
+        esc(b.code) +
+        '</span></td><td>' +
+        brDate(b.date).slice(0, 5) +
+        ' · ' +
+        b.time +
+        '</td><td><b>' +
+        esc(u ? u.name : '—') +
+        '</b>' +
+        (u && u.useSocial && u.socialName
+          ? ' <span class="tag">social: ' + esc(u.socialName) + '</span>'
+          : '') +
+        '<br><span class="muted small">' +
+        esc(u ? u.phone : '') +
+        '</span></td><td class="w">' +
+        esc(v ? v.model : '—') +
+        ' <span class="plate">' +
+        esc(v ? v.plate : '') +
+        '</span></td><td class="w">' +
+        sv.name +
+        obsLine(b) +
+        '</td><td class="w">' +
+        esc(b.unit) +
+        '</td><td>' +
+        payLabel(b) +
+        ' <span class="muted">· ' +
+        payShort(b) +
+        '</span>' +
+        pixBtn(b) +
+        '</td><td class="n">' +
+        money(b.price) +
+        '</td><td>' +
+        statusSelect(b, 'stA-', STATUSES_ALL) +
+        '</td></tr>'
+      );
+    })
+    .join('');
+}
+function allNoteHtml(list) {
+  const sh = Math.min(S.adm.limit, list.length);
+  return (
+    'Mostrando ' +
+    sh +
+    ' de ' +
+    list.length +
+    ' agendamentos. Cancelar um agendamento libera o horário.' +
+    (sh < list.length ? ' <button class="linkbtn" data-act="moreAll">Mostrar mais</button>' : '')
+  );
+}
+function refreshAll() {
+  const list = allList(),
+    b = $('#allBody');
+  if (!b) return;
+  b.innerHTML = allRowsHtml(list);
+  const n = $('#allNote');
+  if (n) n.innerHTML = allNoteHtml(list);
+  const c = $('#allCount');
+  if (c) c.textContent = list.length;
+}
+/* ---- estatísticas extras do painel (unidades, problemas, colaboradores, solicitações) ---- */
+const sumP = a => a.reduce((x, b) => x + b.price, 0);
+const probText = b =>
+  b.problem || ((b.log || []).filter(l => l.st === 'Com Problema').pop() || {}).note || 'Sem descrição';
+const pctS = (n, t) => (t ? String(Math.round((n / t) * 1000) / 10).replace('.', ',') + '%' : '0%');
+function adminExtra() {
+  const t = todayKey(),
+    live = D.bookings.filter(b => b.status !== 'Cancelado');
+  const un = UNITS.map(u => {
+    const all = D.bookings.filter(b => b.unit === u.id),
+      bs = all.filter(b => b.status !== 'Cancelado');
+    return {
+      id: u.id,
+      n: bs.length,
+      hoje: bs.filter(b => b.date === t).length,
+      aguard: bs.filter(b => b.status === 'Aguardando').length,
+      andam: bs.filter(b => ['Iniciando', 'Em Lavagem', 'Com Problema'].includes(b.status)).length,
+      conc: bs.filter(b => b.status === 'Concluído').length,
+      canc: all.length - bs.length,
+      receita: sumP(bs.filter(b => b.status === 'Concluído')),
+      recebido: sumP(bs.filter(b => b.paid)),
+      areceber: sumP(bs.filter(b => !b.paid)),
+      total: sumP(bs),
+      prob: bs.filter(hadProblem).length
+    };
+  });
+  const months = [];
+  const n0 = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(n0.getFullYear(), n0.getMonth() - i, 1),
+      k = d.getFullYear() + '-' + pad(d.getMonth() + 1);
+    const bs = live.filter(b => b.date.slice(0, 7) === k),
+      pr = bs.filter(hadProblem);
+    const byU = {};
+    pr.forEach(b => {
+      byU[b.unit] = (byU[b.unit] || 0) + 1;
+    });
+    months.push({
+      k,
+      label: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+      n: bs.length,
+      p: pr.length,
+      units:
+        Object.keys(byU)
+          .sort((a, b) => byU[b] - byU[a])
+          .map(u => u.replace('FMU ', '') + ' (' + byU[u] + ')')
+          .join(', ') || '—'
+    });
+  }
+  const probs = D.bookings
+    .filter(b => b.status !== 'Cancelado' && hadProblem(b))
+    .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  const staff = STAFF.map(n => {
+    const mine = D.bookings.filter(b => b.staff === n && b.status !== 'Cancelado');
+    return {
+      n,
+      conc: mine.filter(b => b.status === 'Concluído').length,
+      hojeC: mine.filter(b => b.status === 'Concluído' && b.date === t).length,
+      agora: mine.filter(b => ['Iniciando', 'Em Lavagem', 'Com Problema'].includes(b.status)).length,
+      prob: mine.filter(hadProblem).length,
+      pref: live.filter(b => b.pref === n).length
+    };
+  }).sort((a, b) => b.conc - a.conc || b.agora - a.agora);
+  const totConc = staff.reduce((a, s) => a + s.conc, 0);
+  return {
+    un,
+    months,
+    probs,
+    staff,
+    totConc,
+    top: staff[0] && staff[0].conc ? staff[0] : null,
+    reqs: D.requests.slice().sort((a, b) => b.at - a.at)
+  };
+}
