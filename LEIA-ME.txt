@@ -1,0 +1,111 @@
+CARWASH — Qualidade e Brilho Impecável para o seu Veículo
+Site + aplicativo Android (PWA) de agendamento de lavagem. Trabalho escolar, 100% gratuito.
+Feito com HTML, CSS e JavaScript puro (sem frameworks e sem servidor próprio).
+
+
+COMO VER O CÓDIGO
+  - No site publicado: abra  https://rococo-licorice-04fdcc.netlify.app/codigo-fonte.html
+    (também há o link "Ver o código-fonte do projeto" no rodapé da tela de login).
+    A página mostra todas as pastas e abre cada arquivo com o código e o número das linhas.
+  - No computador: descompacte o .zip e abra os arquivos com o VS Code ou o Bloco de Notas.
+
+
+ESTRUTURA DAS PASTAS
+
+carwash-site/
+  index.html ............... página principal: só a estrutura; carrega o visual (css) e os scripts (js)
+  codigo-fonte.html ........ página que mostra o código do projeto (para o professor)
+  manifest.webmanifest ..... transforma o site em aplicativo instalável (nome, cores, ícones)
+  sw.js .................... service worker: guarda os arquivos no celular para abrir sem internet
+  LEIA-ME.txt .............. este arquivo
+
+  css/
+    estilo.css ............. todo o visual: cores do modo claro/escuro, botões, cartões, telas, painel admin
+
+  js/                        (carregados nesta ordem; app.js sempre por último)
+    tema.js ................ aplica o modo claro/escuro antes de a página aparecer
+    qrcode.js .............. biblioteca de QR Code (código aberto, licença MIT, Kazuhiko Arase)
+    utilidades.js .......... funções pequenas: datas, dinheiro em R$, ids
+    icones-e-logotipo.js ... ícones (SVG) e o logotipo nas telas
+    logo-comprovante.js .... logotipo do comprovante em PDF (guardado como texto base64)
+    config.js .............. CONFIGURAÇÕES: serviços e preços, unidades, horários, colaboradores, senhas, CHAVE PIX
+    banco-local.js ......... onde os dados ficam guardados (localStorage) e o estado da tela
+    validacoes.js .......... e-mail, senha forte, celular e placa Mercosul
+    interface.js ........... campos, avisos, cabeçalho, etapas, botão Voltar, rodapé
+    regras-de-negocio.js ... horários livres/ocupados, reserva de 15 min, criar agendamento, status, pagamentos
+    pix.js ................. código Pix Copia e Cola (padrão do Banco Central) e QR Code
+    comprovante-pdf.js ..... comprovante em PDF montado no próprio navegador
+    telas-cliente.js ....... telas do cliente (login, cadastro e termos, início, veículos, Meus agendamentos,
+                             serviços, horário, pagamento, confirmação)
+    telas-unidades.js ...... escolha do local (mapa + lista), "Nossas unidades" e a página de cada unidade
+                             (mapa, fotos da região e tour 360°)
+    tela-colaborador.js .... área do colaborador (código da lavagem e andamento)
+    painel-admin.js ........ cálculos do painel admin (indicadores, unidades, problemas, colaboradores)
+    exportar-excel.js ...... gera as planilhas Excel (.xlsx) sem bibliotecas
+    painel-admin-telas.js .. monta a tela do painel admin
+    janelas.js ............. janelas por cima da tela (senhas, reclamação, cancelamento, foto ampliada)
+    mapa-e-tour360.js ...... mapa das unidades (Leaflet + OpenStreetMap) e tour 360° (Pannellum);
+                             essas bibliotecas vêm da internet e só carregam na tela de locais
+    navegacao.js ........... desenha a tela atual e troca de tela
+    eventos.js ............. o que acontece em cada toque e em cada formulário
+    dados-demonstracao.js .. clientes e agendamentos de exemplo para apresentar o painel
+    app.js ................. inicia o app (instalação, modo offline, primeira tela)
+
+  img/ ..................... logotipos usados no app (claro/escuro) e no comprovante
+  icons/ ................... ícones do aplicativo instalado no celular
+  logo/ .................... logotipo em PNG (para slides e documentos)
+  docs/
+    Carwash_Prototipo_Site_e_App.pdf ... apresentação com todas as telas
+
+
+COMO FUNCIONA (resumo para a apresentação)
+  - É um site de uma página só (SPA): o index.html fica fixo e o JavaScript troca o conteúdo da tela.
+  - Os dados (cadastros, veículos, agendamentos, solicitações) ficam no navegador de quem usa (localStorage).
+    Por isso o admin vê só o que foi feito no mesmo aparelho. Próximo passo: banco gratuito (Supabase).
+  - A senha do cliente é guardada embaralhada (SHA-256), nunca em texto.
+  - O Pix segue o padrão BR Code do Banco Central (com código de verificação CRC16).
+  - O comprovante em PDF e as planilhas Excel são montados pelo próprio app, sem bibliotecas prontas.
+  - Funciona sem internet depois da primeira visita e pode ser instalado no Android (PWA).
+    O mapa, as fotos e o tour 360° das unidades precisam de internet; sem conexão aparece um aviso.
+
+
+SENHAS DE DEMONSTRAÇÃO
+  Administrador: Admin@2026
+  Colaboradores (escolhem o nome e digitam a senha = nome + @2026):
+    Eziel@2026   Guilherme@2026   Murilo@2026   Eduarda@2026   Lucas@2026
+  (ficam escritas em js/config.js; é normal em protótipo de trabalho)
+
+
+PUBLICAR OU ATUALIZAR DE GRAÇA (Netlify)
+  1. Descompacte o .zip. Vai aparecer a pasta "carwash-site".
+  2. Primeira vez: abra https://app.netlify.com/drop e arraste a pasta carwash-site.
+     Site já publicado: abra o site no Netlify > aba "Deploys" > arraste a pasta inteira. O endereço continua o mesmo.
+  3. Trocar o nome do endereço: "Site configuration" > "Change site name".
+  4. No Android: abra o link no Chrome e toque em "Instalar aplicativo no celular".
+     Se o celular mostrar a versão antiga, feche e abra o app duas vezes.
+
+
+CONFIGURAR AS UNIDADES (MAPA, FOTOS E TOUR 360°)
+  1. Abra js/config.js e procure:  CONFIGURE AQUI OS LOCAIS
+  2. Em cada unidade dá para mudar:
+       addr ..... endereço mostrado no app
+       lat, lng . posição no mapa (no Google Maps, clique com o botão direito no local e copie as coordenadas)
+       approx ... true enquanto o endereço não estiver confirmado (o app avisa "localização aproximada")
+       photos ... fotos da unidade, ex.: ['fotos/liberdade-1.jpg', 'fotos/liberdade-2.jpg']
+                  (sem fotos, o app mostra lugares conhecidos perto da unidade, com fotos da Wikipédia)
+       pano ..... foto 360° da unidade (proporção 2:1), ex.: 'fotos/liberdade-360.jpg'
+                  (sem foto 360°, o tour usa o Google Street View do endereço)
+  3. Coloque as fotos numa pasta "fotos" dentro do site, troque a versão em sw.js e publique de novo.
+
+COLOCAR A SUA CHAVE PIX
+  1. Abra js/config.js e procure:  CONFIGURE AQUI O SEU PIX
+  2. Troque:  const PIX_KEY='SUA-CHAVE', PIX_NAME='SEU NOME', PIX_CITY='SUA CIDADE';
+     Nome: até 25 letras, MAIÚSCULAS, sem acento. Cidade: até 15 letras, MAIÚSCULAS, sem acento. Mantenha as aspas.
+  3. Em sw.js troque a versão (ex.: carwash-v6 para carwash-v7) e publique a pasta de novo.
+  Enquanto a chave não for trocada, o Pix é simulado (modo demonstração).
+  O app não sabe sozinho que o Pix chegou: o admin ou o colaborador confere no banco e toca em "Confirmar Pix".
+  Dica: use uma chave aleatória para não expor CPF ou celular.
+
+
+PAGAMENTOS
+  Pix ou "Pagar no local" (dinheiro ou cartão na unidade). O pagamento no local vira "recebido" quando a lavagem é concluída.
